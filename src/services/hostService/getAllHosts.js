@@ -9,11 +9,16 @@ const getAllHosts = async (name) => {
 
     // Als de naam wordt meegegeven, voeg deze toe aan de zoekquery
     if (name) {
-      console.log(`Zoeken naar hosts met naam: ${name}`);  // Log de zoekopdracht
+      console.log(`Zoeken naar hosts met naam: '${name}'`);  // Log de zoekopdracht
+
+      // Zoek naar de naam met kleine letters (hoofdlettergevoeligheid wordt verwijderd)
       query.where.name = {
-        contains: name.toLowerCase(), // Zorg ervoor dat de zoekopdracht in kleine letters is
+        contains: name.trim().toLowerCase(),
       };
     }
+
+    // Log de volledige query voor debuggen
+    console.log("Gebruikte query:", query);
 
     // Voer de query uit en log het resultaat
     const hosts = await prisma.host.findMany(query);
