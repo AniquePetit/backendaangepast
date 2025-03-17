@@ -9,11 +9,11 @@ const createHost = async (hostData) => {
     }
 
     const existingHost = await prisma.host.findFirst({
-      where: { email: hostData.email },
+      where: { username: hostData.username },
     });
 
     if (existingHost) {
-      throw new Error('Het e-mailadres is al in gebruik');
+      throw new Error('Username is al in gebruik');
     }
 
     const hashedPassword = await bcrypt.hash(hostData.password, 10);

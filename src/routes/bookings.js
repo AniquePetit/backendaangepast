@@ -1,16 +1,49 @@
 import express from 'express';
-import authMiddleware from '../middleware/authMiddleware.js';  
-import { getAllBookings, createBooking, updateBooking, deleteBooking } from '../services/bookingService/bookingService.js';
+import authMiddleware from '../middleware/authMiddleware.js';
+import * as bookingService from '../services/bookingService/bookingService.js';
 
 const router = express.Router();
 
-// ✅ Haal alle boekingen op zonder userId (publieke toegang)
-router.get('/', async (req, res) => {  
-  console.log("Verzoek voor boekingen ontvangen zonder userId:", req.query);
+// ✅ Maak een nieuwe boeking aan (met authenticatie)
+router.post('/', authMiddleware, async (req, res) => {
+  console.log("Ontvangen data voor nieuwe boeking:", req.body);
 
   try {
-    // Haal alle boekingen op zonder een userId
-    const bookings = await getAllBookings();  // Verander hier naar de geïmporteerde getAllBookings functie
+    const { userId, propertyId, checkinDate, checkoutDate, numberOfGuests, totalPrice, bookingStatus } = req.body;
+
+    // Validatie van de vereiste velden
+    if (!userId || !propertyId || !checkinDate || !checkoutDate || !numberOfGuests || !totalPrice) {
+      return res.status(400).json({ message: 'Vereiste velden ontbreken' });
+    }
+
+    // Extra validatie voor numerieke velden
+    if (isNaN(numberOfGuests) || isNaN(totalPrice)) {
+      return res.status(400).json({ message: 'Aantal gasten of totaalprijs moeten geldige getallen zijn.' });
+    }
+
+    const newBooking = await bookingService.createBooking({
+      userId,
+      propertyId,
+      checkinDate,
+      checkoutDate,
+      numberOfGuests,
+      totalPrice,
+      bookingStatus: bookingStatus || "pending",
+    });
+    console.log("Nieuwe boeking aangemaakt:", newBooking);  // Log de aangemaakte boeking
+    res.status(201).json(newBooking);
+  } catch (error) {
+    console.error('Fout bij aanmaken van boeking:', error);
+    res.status(500).json({ message: 'Fout bij aanmaken van boeking', error: error.message });
+  }
+});
+
+// ✅ Haal alle boekingen op (zonder authenticatie)
+router.get('/', async (req, res) => {
+  console.log("Verzoek om boekingen op te halen");  // Log het verzoek
+
+  try {
+    const bookings = await bookingService.getAllBookings();
 
     if (bookings.length === 0) {
       return res.status(404).json({ message: 'Geen boekingen gevonden' });
@@ -23,43 +56,34 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ✅ Maak een nieuwe boeking aan (met authenticatie)
-router.post('/', authMiddleware, async (req, res) => {  
+// ✅ Haal een specifieke boeking op via ID (zonder authenticatie)
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  console.log(`Verzoek om boeking met ID ${id} op te halen`);  // Log het ID voor ophalen van de boeking
   try {
-    const { userId, propertyId, checkinDate, checkoutDate, numberOfGuests, totalPrice, bookingStatus } = req.body;
+    const booking = await bookingService.getBookingById(id);
 
-    console.log('Ontvangen body:', req.body);
-
-    if (!userId || !propertyId || !checkinDate || !checkoutDate || !numberOfGuests || !totalPrice) {
-      return res.status(400).json({ message: 'Alle velden zijn verplicht' });
+    if (!booking) {
+      return res.status(404).json({ message: `Boeking met ID ${id} niet gevonden` });
     }
 
-    const newBooking = await createBooking({
-      userId,
-      propertyId,
-      checkinDate,
-      checkoutDate,
-      numberOfGuests,
-      totalPrice,
-      bookingStatus: bookingStatus || "pending",
-    });
-
-    res.status(201).json(newBooking);
+    res.json(booking);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Fout bij aanmaken van boeking', error: error.message });
+    console.error('Fout bij ophalen van boeking:', error);
+    res.status(500).json({ message: 'Fout bij ophalen van boeking', error: error.message });
   }
 });
 
 // ✅ Werk een bestaande boeking bij (PUT) (met authenticatie)
-router.put('/:id', authMiddleware, async (req, res) => {  
+router.put('/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { checkinDate, checkoutDate, numberOfGuests, totalPrice, bookingStatus } = req.body;
+
+  console.log(`Verzoek om boeking met ID ${id} bij te werken`);  // Log het verzoek
+
   try {
-    const id = req.params.id;
-    const { checkinDate, checkoutDate, numberOfGuests, totalPrice, bookingStatus } = req.body;
-
-    console.log('Ontvangen body voor update:', req.body);
-
-    const updatedBooking = await updateBooking(id, {
+    const updatedBooking = await bookingService.updateBooking(id, {
       checkinDate,
       checkoutDate,
       numberOfGuests,
@@ -67,27 +91,35 @@ router.put('/:id', authMiddleware, async (req, res) => {
       bookingStatus,
     });
 
+    if (!updatedBooking) {
+      return res.status(404).json({ message: `Boeking met ID ${id} niet gevonden om bij te werken` });
+    }
+
+    console.log("Boeking bijgewerkt:", updatedBooking);  // Log de bijgewerkte boeking
     res.json(updatedBooking);
   } catch (error) {
-    console.error(error);
+    console.error('Fout bij bijwerken van boeking:', error);
     res.status(500).json({ message: 'Fout bij bijwerken van boeking', error: error.message });
   }
 });
 
 // ✅ Verwijder een boeking (DELETE) (met authenticatie)
-router.delete('/:id', authMiddleware, async (req, res) => {  
-  try {
-    const id = req.params.id;
+router.delete('/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
 
-    if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)) {
-      return res.status(400).json({ message: 'Ongeldige ID' });
+  console.log(`Verzoek om boeking met ID ${id} te verwijderen`);  // Log het ID van de boeking die verwijderd wordt
+
+  try {
+    const deletedBooking = await bookingService.deleteBooking(id);
+
+    if (!deletedBooking) {
+      return res.status(404).json({ message: `Boeking met ID ${id} niet gevonden om te verwijderen` });
     }
 
-    const result = await deleteBooking(id);
-
-    res.json(result);
+    console.log("Boeking verwijderd:", deletedBooking);  // Log de verwijderde boeking
+    res.json({ message: `Boeking met ID ${id} succesvol verwijderd`, booking: deletedBooking });
   } catch (error) {
-    console.error(error);
+    console.error('Fout bij verwijderen van boeking:', error);
     res.status(500).json({ message: 'Fout bij verwijderen van boeking', error: error.message });
   }
 });

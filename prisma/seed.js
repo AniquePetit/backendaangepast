@@ -10,16 +10,18 @@ import { v4 as uuidv4 } from 'uuid';
 
 const prisma = new PrismaClient({ log: ["query", "info", "warn", "error"] });
 
-const saltRounds = 10; // Het aantal keren dat bcrypt het wachtwoord gaat "verharden"
+const saltRounds = 10; // Sterkte van bcrypt hashing
 
 async function main() {
-    // Verwijder eerst alle records om duplicaties te voorkomen
-    await prisma.booking.deleteMany(); // Verwijder alle bookings
-    await prisma.review.deleteMany();  // Verwijder alle reviews
-    await prisma.property.deleteMany(); // Verwijder alle properties
-    await prisma.host.deleteMany();    // Verwijder alle hosts
-    await prisma.user.deleteMany();    // Verwijder alle users
-    await prisma.amenity.deleteMany(); // Verwijder alle amenities
+    console.log("🚀 Start seeding...");
+
+    // ❌ Verwijder bestaande data om duplicaten te voorkomen
+    await prisma.booking.deleteMany();
+    await prisma.review.deleteMany();
+    await prisma.property.deleteMany();
+    await prisma.host.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.amenity.deleteMany();
 
     const { amenities } = amenityData;
     const { bookings } = bookingData;
@@ -28,78 +30,94 @@ async function main() {
     const { reviews } = reviewData;
     const { users } = userData;
 
-    // Upsert Amenities
+    // ✅ Upsert Amenities
+    console.log("⏳ Seeding amenities...");
+    const amenityMap = {}; // Om ID's makkelijk terug te vinden
     for (const amenity of amenities) {
-        await prisma.amenity.upsert({
-            where: { id: amenity.id },
+        const amenityId = amenity.id || uuidv4();
+        const createdAmenity = await prisma.amenity.upsert({
+            where: { id: amenityId },
             update: {},
-            create: amenity,
+            create: { id: amenityId, name: amenity.name },
         });
+        amenityMap[amenity.name] = createdAmenity.id;
     }
 
-    // Upsert Hosts
+    // ✅ Upsert Hosts
+    console.log("⏳ Seeding hosts...");
     for (const host of hosts) {
         await prisma.host.upsert({
-            where: { email: host.email }, // Controleer op e-mail om duplicaten te vermijden
-            update: {},  // Geen update nodig als host al bestaat
-            create: host,  // Voeg host toe als deze nog niet bestaat
+            where: { id: host.id },
+            update: {},
+            create: host,
         });
     }
 
-    // Upsert Users
-for (const user of users) {
-    const userId = user.id || uuidv4(); // Genereer UUID als er geen id is
-    const hashedPassword = await bcrypt.hash(user.password, saltRounds); // Hash het wachtwoord
+    // ✅ Upsert Users
+    console.log("⏳ Seeding users...");
+    for (const user of users) {
+        const userId = user.id || uuidv4();
+        const hashedPassword = await bcrypt.hash(user.password, saltRounds);
+        await prisma.user.upsert({
+            where: { username: user.username },
+            update: {},
+            create: {
+                id: userId,
+                name: user.name,
+                email: user.email,
+                password: hashedPassword,
+                username: user.username,
+                phoneNumber: user.phoneNumber,
+                profilePicture: user.profilePicture,
+                pictureUrl: user.pictureUrl || "https://example.com/default-profile-pic.jpg",
+            },
+        });
+    }
 
-    await prisma.user.upsert({
-        where: { email: user.email },  // Controleer op e-mail omdat het nu uniek is
-        update: {},  // Geen update nodig als user al bestaat
-        create: {
-            id: userId, 
-            name: user.name,
-            email: user.email,
-            password: hashedPassword, // Sla het gehashte wachtwoord op
-            username: user.username,
-            phoneNumber: user.phoneNumber,
-            profilePicture: user.profilePicture,
-            pictureUrl: user.pictureUrl || "https://example.com/default-profile-pic.jpg",
-        },
-    });
-}
-
-
-    // Upsert Properties
+    // ✅ Upsert Properties (met amenities)
+    console.log("⏳ Seeding properties...");
     for (const property of properties) {
         const propertyId = property.id || uuidv4();
+        
+        // Check of de host bestaat
+        const hostExists = await prisma.host.findUnique({
+            where: { id: property.hostId },
+        });
+
+        if (!hostExists) {
+            console.warn(`⚠️ Host met ID ${property.hostId} niet gevonden. Property wordt overgeslagen.`);
+            continue;
+        }
+
         await prisma.property.upsert({
             where: { id: propertyId },
-            update: {},  // Geen update nodig
+            update: {},
             create: {
                 id: propertyId,
-                name: property.name,
-                location: property.location,
-                price: property.price,
-                hostId: property.hostId,
                 title: property.title,
                 description: property.description,
+                location: property.location,
                 pricePerNight: property.pricePerNight,
                 bedroomCount: property.bedroomCount,
                 bathRoomCount: property.bathRoomCount,
                 maxGuestCount: property.maxGuestCount,
                 rating: property.rating,
+                hostId: property.hostId,
+                
             },
         });
     }
 
-    // Upsert Bookings
+    // ✅ Upsert Bookings
+    console.log("⏳ Seeding bookings...");
     for (const booking of bookings) {
         if (!users.some(user => user.id === booking.userId)) {
-            console.error(`User with id ${booking.userId} not found!`);
+            console.warn(`⚠️ User met ID ${booking.userId} niet gevonden. Booking wordt overgeslagen.`);
             continue;
         }
 
-        if (!hosts.some(host => host.id === booking.hostId)) {
-            console.error(`Host with id ${booking.hostId} not found!`);
+        if (!properties.some(property => property.id === booking.propertyId)) {
+            console.warn(`⚠️ Property met ID ${booking.propertyId} niet gevonden. Booking wordt overgeslagen.`);
             continue;
         }
 
@@ -107,10 +125,9 @@ for (const user of users) {
 
         await prisma.booking.upsert({
             where: { id: bookingId },
-            update: {},  // Geen update nodig
+            update: {},
             create: {
                 id: bookingId,
-                title: booking.title,
                 userId: booking.userId,
                 propertyId: booking.propertyId,
                 checkinDate: new Date(booking.checkinDate),
@@ -118,17 +135,17 @@ for (const user of users) {
                 numberOfGuests: booking.numberOfGuests,
                 totalPrice: booking.totalPrice,
                 bookingStatus: booking.bookingStatus,
-                hostId: booking.hostId,
             },
         });
     }
 
-    // Upsert Reviews
+    // ✅ Upsert Reviews
+    console.log("⏳ Seeding reviews...");
     for (const review of reviews) {
         const reviewId = review.id || uuidv4();
         await prisma.review.upsert({
             where: { id: reviewId },
-            update: {},  // Geen update nodig
+            update: {},
             create: {
                 id: reviewId,
                 userId: review.userId,
@@ -138,15 +155,18 @@ for (const user of users) {
             },
         });
     }
+
+    console.log("✅ Seeding voltooid!");
 }
 
+// **Run de seed functie**
 main()
     .then(() => {
-        console.log('Data seeded successfully!');
+        console.log('🎉 Alle data is succesvol geïmporteerd!');
         prisma.$disconnect();
     })
     .catch((error) => {
-        console.error('Error seeding data:', error);
+        console.error('❌ Fout tijdens seeding:', error);
         prisma.$disconnect();
         process.exit(1);
     });

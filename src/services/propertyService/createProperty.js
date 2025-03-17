@@ -1,5 +1,5 @@
-// src/services/propertyService/createProperty.js
-import prisma from '../../../prisma/prismaClient.js';  // Relatief pad naar prismaClient.js
+import { PrismaClient } from '@prisma/client';  // PrismaClient importeren
+const prisma = new PrismaClient();
 
 const createProperty = async (hostId, propertyData) => {
   try {
@@ -19,7 +19,7 @@ const createProperty = async (hostId, propertyData) => {
         title: propertyData.title,
         description: propertyData.description,
         location: propertyData.location,
-        pricePerNight: propertyData.pricePerNight,
+        pricePerNight: parseFloat(propertyData.pricePerNight),  // Direct met float werken
         bedroomCount: propertyData.bedroomCount,
         bathRoomCount: propertyData.bathRoomCount,
         maxGuestCount: propertyData.maxGuestCount,

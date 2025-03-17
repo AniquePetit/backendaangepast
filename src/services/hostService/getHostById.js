@@ -8,7 +8,7 @@ const getHostById = async (id) => {
     });
 
     if (!host) {
-      throw new Error('Host niet gevonden');
+      return null
     }
 
     return host;

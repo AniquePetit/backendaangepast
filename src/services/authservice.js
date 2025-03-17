@@ -9,10 +9,17 @@ const REFRESH_TOKEN_EXPIRATION = '7d'; // Refresh token verloopt na 7 dagen
 export async function register(email, password, username, name, phoneNumber, profilePicture) {
   try {
     const normalizedEmail = email.toLowerCase();
-    const existingUser = await prisma.user.findFirst({ where: { email: normalizedEmail } });
 
-    if (existingUser) {
-      return { error: 'Gebruiker bestaat al' };
+    // Check of de gebruikersnaam of het e-mailadres al bestaat
+    const existingUserByEmail = await prisma.user.findFirst({ where: { email: normalizedEmail } });
+    const existingUserByUsername = await prisma.user.findFirst({ where: { username: username } });
+
+    if (existingUserByEmail) {
+      return { error: 'E-mail bestaat al' };
+    }
+
+    if (existingUserByUsername) {
+      return { error: 'Gebruikersnaam bestaat al' };
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -35,38 +42,42 @@ export async function register(email, password, username, name, phoneNumber, pro
   }
 }
 
-// Inloggen van een gebruiker
-export async function login(email, password) {
+// Inloggen van een gebruiker met gebruikersnaam en wachtwoord
+export async function login(username, password) {
   try {
-    const normalizedEmail = email.toLowerCase();
-    const user = await prisma.user.findFirst({ where: { email: normalizedEmail } });
+    // Zoek gebruiker op basis van gebruikersnaam
+    const user = await prisma.user.findFirst({ where: { username: username } });
 
     if (!user) {
       return { error: 'Gebruiker niet gevonden' };
     }
 
+    // Vergelijk het wachtwoord met het opgeslagen hash
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return { error: 'Onjuist wachtwoord' };
     }
 
+    // Controleer of de SECRET_KEY's aanwezig zijn in de environment variables
     if (!process.env.AUTH_SECRET_KEY || !process.env.REFRESH_SECRET_KEY) {
       throw new Error('AUTH_SECRET_KEY of REFRESH_SECRET_KEY ontbreekt in het .env-bestand');
     }
 
+    // Maak een access token aan voor de gebruiker
     const accessToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, username: user.username },  // Gebruikersnaam wordt toegevoegd in de payload
       process.env.AUTH_SECRET_KEY,
       { expiresIn: ACCESS_TOKEN_EXPIRATION }
     );
 
+    // Maak een refresh token aan voor de gebruiker
     const refreshToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, username: user.username },  // Gebruikersnaam wordt toegevoegd in de payload
       process.env.REFRESH_SECRET_KEY,
       { expiresIn: REFRESH_TOKEN_EXPIRATION }
     );
 
-    // Sla het refresh token op in de database
+    // Sla het refresh token op in de database voor de gebruiker
     await prisma.user.update({
       where: { id: user.id },
       data: { refreshToken },
@@ -98,7 +109,7 @@ export async function refreshAccessToken(refreshToken) {
     }
 
     const newAccessToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, username: user.username },  // Gebruikersnaam wordt toegevoegd in de payload
       process.env.AUTH_SECRET_KEY,
       { expiresIn: ACCESS_TOKEN_EXPIRATION }
     );

@@ -6,7 +6,8 @@ const updateHost = async (id, hostData) => {
     const host = await prisma.host.findUnique({ where: { id: id } });
 
     if (!host) {
-      throw new Error('Host niet gevonden');
+      
+      return null
     }
 
     const updatedHost = await prisma.host.update({

@@ -1,41 +1,36 @@
-// src/prisma/schema.prisma
-
-// Definieer de datasourcenaam en provider voor SQLite
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL") // Verwijs naar de DATABASE_URL variabele in je .env bestand
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// ------------------- Models ---------------------
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
 
 model User {
-  id             String    @id @default(uuid()) // UUID voor User ID
+  id             String    @id @default(uuid())
   username       String    @unique
   password       String
   name           String
-  email          String    @unique
+  email          String
   phoneNumber    String
-  profilePicture String? // Dit veld is optioneel
+  profilePicture String?
   pictureUrl     String?
-  bookings       Booking[] @relation("UserBookings") // Relatie naar Bookings
-  reviews        Review[]  @relation("UserReviews") // Relatie naar Reviews
   refreshToken   String?
+  bookings       Booking[] @relation("UserBookings")
+  reviews        Review[]  @relation("UserReviews")
 }
 
 model Host {
-  id             String     @id @default(cuid()) // Unieke ID voor de host
-  username       String     @unique // Gebruikersnaam moet uniek zijn
-  password       String // Het gehashte wachtwoord van de host
+  id             String     @id @default(cuid())
+  username       String     @unique
+  password       String
   name           String
-  email          String     @unique
-  phoneNumber    String // Telefoonnummer van de host
-  profilePicture String? // Optioneel, profielafbeelding van de host
-  aboutMe        String? // Optioneel, een korte bio over de host
-  listings       Property[] @relation("HostProperties") // Verwijder onDelete: Cascade hier
+  email          String
+  phoneNumber    String
+  profilePicture String?
+  aboutMe        String?
+  listings       Property[] @relation("HostProperties")
 }
 
 model Property {
@@ -44,19 +39,19 @@ model Property {
   title         String
   description   String
   location      String
-  pricePerNight Decimal
+  pricePerNight Float
   bedroomCount  Int
   bathRoomCount Int
   maxGuestCount Int
-  host          Host      @relation("HostProperties", fields: [hostId], references: [id], onDelete: Cascade)
-  amenities     Amenity[] @relation("PropertyAmenities")
-  bookings      Booking[] @relation("PropertyBookings")
-  reviews       Review[]  @relation("PropertyReviews")
   rating        Int
+  bookings      Booking[] @relation("PropertyBookings")
+  host          Host      @relation("HostProperties", fields: [hostId], references: [id], onDelete: Cascade)
+  reviews       Review[]  @relation("PropertyReviews")
+  amenities     Amenity[] @relation("PropertyAmenities")
 }
 
 model Booking {
-  id             String   @id @default(uuid()) // UUID voor Booking ID
+  id             String   @id @default(uuid())
   userId         String
   propertyId     String
   checkinDate    DateTime
@@ -64,8 +59,8 @@ model Booking {
   numberOfGuests Int
   totalPrice     Int
   bookingStatus  String
-  user           User     @relation("UserBookings", fields: [userId], references: [id], onDelete: Cascade) // Relatie naar User met Cascade bij delete
-  property       Property @relation("PropertyBookings", fields: [propertyId], references: [id], onDelete: Cascade) // Relatie naar Property met Cascade bij delete
+  property       Property @relation("PropertyBookings", fields: [propertyId], references: [id], onDelete: Cascade)
+  user           User     @relation("UserBookings", fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Amenity {
@@ -75,11 +70,11 @@ model Amenity {
 }
 
 model Review {
-  id         String   @id @default(uuid()) // UUID voor Review ID
+  id         String   @id @default(uuid())
   userId     String
   propertyId String
   rating     Int
   comment    String
-  user       User     @relation("UserReviews", fields: [userId], references: [id], onDelete: Cascade) // Relatie naar User met Cascade bij delete
-  property   Property @relation("PropertyReviews", fields: [propertyId], references: [id], onDelete: Cascade) // Relatie naar Property met Cascade bij delete
+  property   Property @relation("PropertyReviews", fields: [propertyId], references: [id], onDelete: Cascade)
+  user       User     @relation("UserReviews", fields: [userId], references: [id], onDelete: Cascade)
 }

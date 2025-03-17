@@ -1,8 +1,6 @@
-// src/routes/hosts.js
 import express from 'express';
-import authMiddleware from '../middleware/authMiddleware.js';  // Voeg de middleware toe
+import authMiddleware from '../middleware/authMiddleware.js';
 import prisma from '../../prisma/prismaClient.js';
-// src/routes/hosts.js
 import { createHost, getHostById, updateHost, deleteHost, getAllHosts } from '../services/hostService/hostService.js';
 
 const router = express.Router();
@@ -12,13 +10,10 @@ router.get('/', async (req, res) => {
   const { name } = req.query;  // Haal de 'name' queryparameter op
 
   try {
-    // Zoek hosts op basis van de opgegeven queryparameter 'name'
-    const hosts = await prisma.host.findMany({
-      where: {
-        name: name ? { contains: name } : undefined, // Geen 'mode' meer
-      },
-    });
-    
+    // Gebruik getAllHosts om hosts op te halen, met de mogelijkheid om te filteren op naam
+    const hosts = await getAllHosts(name);  
+
+    // Als er geen hosts gevonden zijn, stuur dan een 404 status terug
     if (hosts.length === 0) {
       return res.status(404).json({ message: 'Geen hosts gevonden' });
     }
@@ -33,48 +28,59 @@ router.get('/', async (req, res) => {
 // ✅ Haal één host op via ID (zonder authenticatie)
 router.get('/:id', async (req, res) => {
   try {
-    // Gebruik getHostById functie van hostService die je hebt geïmporteerd
-    const host = await getHostById(req.params.id);  
-    res.json(host);  // Response met de opgehaalde host
+    const host = await getHostById(req.params.id);
+
+    if (!host) {
+      return res.status(404).json({ message: `Host met ID ${req.params.id} niet gevonden` });
+    }
+
+    res.json(host);
   } catch (error) {
     console.log('Fout bij ophalen van host:', error);
-    res.status(500).json({ message: error.message });  // Stuur een foutmelding naar de client
+    res.status(500).json({ message: 'Fout bij ophalen van host', error: error.message });
   }
 });
 
 // ✅ Maak een nieuwe host aan (met authenticatie)
-router.post('/', authMiddleware, async (req, res) => {  // authMiddleware toegevoegd
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    // Gebruik createHost functie van hostService die je hebt geïmporteerd
-    const newHost = await createHost(req.body);  
-    res.status(201).json(newHost);  // Response met de aangemaakte host
+    const newHost = await createHost(req.body);
+    res.status(201).json(newHost);
   } catch (error) {
     console.log('Fout bij het aanmaken van host:', error);
-    res.status(400).json({ message: error.message });  // Foutmelding met status 400 als data ontbreekt
+    res.status(400).json({ message: error.message });
   }
 });
 
 // ✅ Werk een bestaande host bij (PUT) (met authenticatie)
-router.put('/:id', authMiddleware, async (req, res) => {  // authMiddleware toegevoegd
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    // Gebruik updateHost functie van hostService die je hebt geïmporteerd
-    const updatedHost = await updateHost(req.params.id, req.body);  
-    res.json(updatedHost);  // Response met de bijgewerkte host
+    const updatedHost = await updateHost(req.params.id, req.body);
+
+    if (!updatedHost) {
+      return res.status(404).json({ message: `Host met ID ${req.params.id} niet gevonden` });
+    }
+
+    res.json(updatedHost);
   } catch (error) {
     console.log('Fout bij het bijwerken van host:', error);
-    res.status(400).json({ message: error.message });  // Foutmelding met status 400 bij ongeldige gegevens
+    res.status(500).json({ message: 'Fout bij bijwerken van host', error: error.message });
   }
 });
 
 // ✅ Verwijder een host (DELETE) (met authenticatie)
-router.delete('/:id', authMiddleware, async (req, res) => {  // authMiddleware toegevoegd
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    // Gebruik deleteHost functie van hostService die je hebt geïmporteerd
-    const result = await deleteHost(req.params.id);  
-    res.json(result);  // Response met het resultaat van de verwijdering
+    const deletedHost = await deleteHost(req.params.id);
+
+    if (!deletedHost) {
+      return res.status(404).json({ message: `Host met ID ${req.params.id} niet gevonden` });
+    }
+
+    res.json({ message: `Host met ID ${req.params.id} succesvol verwijderd`, host: deletedHost });
   } catch (error) {
     console.log('Fout bij het verwijderen van host:', error);
-    res.status(500).json({ message: error.message });  // Foutmelding bij mislukking
+    res.status(500).json({ message: 'Fout bij verwijderen van host', error: error.message });
   }
 });
 

@@ -5,13 +5,13 @@ const router = express.Router();
 
 // Login route
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
-  if (!email || !password) {
+  if (!username || !password) {
     return res.status(400).json({ error: 'Email en wachtwoord zijn verplicht' });
   }
 
-  const result = await login(email, password);
+  const result = await login(username, password);
 
   if (result.token) { // Aangepast naar de nieuwe response-structuur
     return res.json(result);

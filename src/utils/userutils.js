@@ -20,13 +20,13 @@ const validateUserData = async (userData) => {
     throw new Error('Gebruiker met dit gebruikersnaam bestaat al');
   }
 
-  const existingUserByEmail = await prisma.user.findMany({
-    where: { email: userData.email },
-  });
+  // const existingUserByEmail = await prisma.user.findMany({
+  //   where: { email: userData.email },
+  // });
 
-  if (existingUserByEmail.length > 0) {
-    throw new Error('Dit e-mailadres is al geregistreerd');
-  }
+  // if (existingUserByEmail.length > 0) {
+  //   throw new Error('Dit e-mailadres is al geregistreerd');
+  // }
 };
 
 export { hashPassword, validateUserData };

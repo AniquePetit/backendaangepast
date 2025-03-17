@@ -6,7 +6,7 @@ const REFRESH_SECRET_KEY = process.env.REFRESH_SECRET_KEY || 'geheime_refresh_sl
 
 // Middleware voor het verifiëren van tokens
 const authMiddleware = (req, res, next) => {
-  const token = req.header('Authorization')?.split(' ')[1]; // Verkrijg het token uit de Authorization header
+  const token = req.header('Authorization'); // Verkrijg het token uit de Authorization header
 
   if (!token) {
     return res.status(401).json({ message: 'Geen toegang, token ontbreekt' });

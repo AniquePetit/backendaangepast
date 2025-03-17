@@ -6,11 +6,13 @@ import createProperty from './createProperty.js';
 import updateProperty from './updateProperty.js';
 import deleteProperty from './deleteProperty.js';
 
+
 export { 
   getAllProperties, 
   getFilteredProperties, 
   getPropertyById, 
   createProperty, 
   updateProperty, 
-  deleteProperty 
+  deleteProperty, 
+
 };

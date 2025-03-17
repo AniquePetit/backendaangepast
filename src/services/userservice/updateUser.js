@@ -7,7 +7,8 @@ const updateUser = async (id, userData) => {
     });
 
     if (!user) {
-      throw new Error('Gebruiker niet gevonden');
+      // throw new Error('Gebruiker niet gevonden');
+      return null
     }
 
     return await prisma.user.update({

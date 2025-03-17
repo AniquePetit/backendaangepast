@@ -1,20 +1,31 @@
-// src/services/propertyService/getPropertyById.js
-import prisma from '../../../prisma/prismaClient.js';  // Relatief pad naar prismaClient.js
+import prisma from '../../../prisma/prismaClient.js';
 
 const getPropertyById = async (id) => {
+  // Validatie of de ID niet leeg is en een string is
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    throw new Error('ID moet een geldige niet-lege string zijn');
+  }
+
   try {
-    return await prisma.property.findUnique({
-      where: { id },
+    // Zoek de property op via de ID
+    const property = await prisma.property.findUnique({
+      where: { id: id },
       include: {
         host: true,
         amenities: true,
-        bookings: true,
         reviews: true,
+        bookings: true,
       },
     });
+
+    if (!property) {
+      return null;  // Als de property niet gevonden is
+    }
+
+    return property;
   } catch (error) {
-    console.error('Fout bij ophalen van accommodatie via ID:', error);
-    throw new Error('Fout bij ophalen van accommodatie via ID');
+    console.log('Fout bij ophalen van property:', error);
+    throw new Error('Fout bij het ophalen van property');
   }
 };
 
